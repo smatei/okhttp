@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import okhttp3.internal.NamedRunnable;
-import okhttp3.internal.cache.CacheInterceptor;
+//import okhttp3.internal.cache.CacheInterceptor;
 import okhttp3.internal.connection.ConnectInterceptor;
 import okhttp3.internal.connection.StreamAllocation;
 import okhttp3.internal.http.BridgeInterceptor;
@@ -51,6 +51,29 @@ final class RealCall implements Call {
   }
 
   @Override public Response execute() throws IOException {
+    // for https requests, the preemptive authentication is sent in RealConnection.createTunnel
+    if (!originalRequest.isHttps()) {
+      Authenticator proxyAuthenticator = client.proxyAuthenticator();
+      if (proxyAuthenticator instanceof PreemptiveAuthenticator) {
+        Request authenticatedRequest =
+          ((PreemptiveAuthenticator) proxyAuthenticator).authenticate(null, originalRequest);
+
+        if (authenticatedRequest != null) {
+          originalRequest = authenticatedRequest;
+        }
+      }
+    }
+
+    Authenticator webAuthenticator = client.authenticator();
+    if (webAuthenticator instanceof PreemptiveAuthenticator) {
+      Request authenticatedRequest =
+        ((PreemptiveAuthenticator) webAuthenticator).authenticate(null, originalRequest);
+
+      if (authenticatedRequest != null) {
+        originalRequest = authenticatedRequest;
+      }
+    }
+
     synchronized (this) {
       if (executed) throw new IllegalStateException("Already Executed");
       executed = true;
@@ -162,7 +185,7 @@ final class RealCall implements Call {
     interceptors.addAll(client.interceptors());
     interceptors.add(retryAndFollowUpInterceptor);
     interceptors.add(new BridgeInterceptor(client.cookieJar()));
-    interceptors.add(new CacheInterceptor(client.internalCache()));
+//    interceptors.add(new CacheInterceptor(client.internalCache()));
     interceptors.add(new ConnectInterceptor(client));
     if (!retryAndFollowUpInterceptor.isForWebSocket()) {
       interceptors.addAll(client.networkInterceptors());

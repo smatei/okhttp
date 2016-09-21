@@ -37,6 +37,7 @@ import okhttp3.Connection;
 import okhttp3.ConnectionSpec;
 import okhttp3.Handshake;
 import okhttp3.HttpUrl;
+import okhttp3.PreemptiveAuthenticator;
 import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -284,6 +285,13 @@ public final class RealConnection extends Http2Connection.Listener implements Co
    */
   private Request createTunnel(int readTimeout, int writeTimeout, Request tunnelRequest,
       HttpUrl url) throws IOException {
+    if (route.address().proxyAuthenticator() instanceof PreemptiveAuthenticator)
+    {
+      PreemptiveAuthenticator authenticator =
+        (PreemptiveAuthenticator) route.address().proxyAuthenticator();
+      tunnelRequest = authenticator.authenticate(route, tunnelRequest);
+    }
+
     // Make an SSL Tunnel on the first message pair of each SSL + proxy connection.
     String requestLine = "CONNECT " + Util.hostHeader(url, true) + " HTTP/1.1";
     while (true) {
